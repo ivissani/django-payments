@@ -220,7 +220,14 @@ class PaypalProvider(BasicProvider):
                 return redirect(payment.get_failure_url())
             else:
                 return redirect(success_url)
-        executed_payment = self.execute_payment(payment, payer_id)
+        try:
+            executed_payment = self.execute_payment(payment, payer_id)
+        except PaymentError:
+            # When PaymentError is raised we need to redirect to failure_url otherwise status is not updated
+            # in the payment because the process_data view rollbacks the transaction. And also we get a 500
+            # instead of a nice error page.
+            return redirect(payment.get_failure_url())
+
         self.set_response_links(payment, executed_payment)
         payment.attrs.payer_info = executed_payment['payer']['payer_info']
         if self._capture:
